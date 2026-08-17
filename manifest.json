@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "20-20-20 Eye Rest Reminder",
+  "version": "1.0.0",
+  "description": "Reminds you every 20 minutes to look at something 20 feet away for 20 seconds, to reduce digital eye strain.",
+  "permissions": ["alarms", "notifications", "storage", "offscreen"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

@@ -1,0 +1,10 @@
+header, .title, .actions, .settings-body, .checkbox-row { min-width: 0; }
+.title { flex: 1 1 auto; }
+.title h1, .stat, .mode, .time, .hint, .btn, .settings-toggle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stat { flex: 0 1 auto; max-width: 92px; }
+.actions .btn { min-width: 0; }
+.settings-body label, .error { overflow-wrap: anywhere; }
