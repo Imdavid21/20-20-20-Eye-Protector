@@ -105,6 +105,7 @@ async function startBreak(breakSeconds) {
   const state = await getState();
   const seconds = breakSeconds ?? state.breakSeconds;
   await chrome.alarms.clear(WORK_ALARM);
+  await chrome.notifications.clear("eye-rest-break-ready");
   await stopOffscreenRuntime();
   const nextEventAt = Date.now() + seconds * 1_000;
   await updateState({ mode: MODES.BREAK, nextEventAt, paused: false });
@@ -125,14 +126,20 @@ async function completeBreak() {
   if (state.mode !== MODES.BREAK || state.paused) return;
   const breaksTakenToday = state.breaksTakenToday + 1;
   await updateState({ breaksTakenToday });
-  await chrome.notifications.create("eye-rest-break-complete", {
+  await chrome.notifications.clear("eye-rest-break-warning");
+  await startWork(state.workMinutes);
+}
+
+async function warnBreakEnding(remainingSeconds) {
+  const state = await getState();
+  if (state.mode !== MODES.BREAK || state.paused) return;
+  await chrome.notifications.create("eye-rest-break-warning", {
     type: "basic",
     iconUrl: "icons/icon128.png",
-    title: "Break complete",
-    message: `${breaksTakenToday} today`,
-    priority: 1,
+    title: `${remainingSeconds} seconds left`,
+    message: "Keep looking away.",
+    priority: 2,
   });
-  await startWork(state.workMinutes);
 }
 
 async function restoreRuntime() {
@@ -206,6 +213,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const handlers = {
     "break-complete": async () => {
       await completeBreak();
+      return { ok: true };
+    },
+    "break-warning": async () => {
+      await warnBreakEnding(message.remainingSeconds);
       return { ok: true };
     },
     "get-state": async () => resetDailyStats(await getState()),

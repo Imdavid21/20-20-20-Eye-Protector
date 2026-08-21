@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "20-20-20 Eye Rest Reminder",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A quiet 20-20-20 eye-break timer with acknowledged alarms and guided break cues.",
   "permissions": ["alarms", "notifications", "storage", "offscreen"],
   "background": {
