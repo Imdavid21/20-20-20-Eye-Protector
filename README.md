@@ -1,40 +1,51 @@
-# 20-20-20 Eye Rest Reminder
+# 20-20-20 Eye Protector
 
-A local Chrome extension that reminds you every 20 minutes to look at
-something 20 feet away for 20 seconds, to reduce digital eye strain.
+A focused Chrome extension for the 20-20-20 eye-rest routine.
 
-## Install (unpacked, for your own Chrome)
+## How it works
 
-1. Unzip this folder somewhere permanent (don't delete it after — Chrome
-   loads the extension directly from these files).
-2. Open Chrome and go to `chrome://extensions/`
-3. Turn on **Developer mode** (toggle, top right)
-4. Click **Load unpacked**
-5. Select the `eye-rest-20-20-20` folder
-6. Done — the timer starts automatically.
+1. Chrome starts a 20-minute work timer automatically.
+2. When the timer ends, a notification and repeating alarm request a break.
+3. The alarm continues until you open the extension and select **Start break**.
+4. A 20-second countdown begins with quiet one-second audio cues.
+5. The next 20-minute cycle starts automatically when the break ends.
 
-## What it does
+Pausing the extension stops all timers and sounds. A paused timer stays paused when Chrome restarts.
 
-- Runs a 20-minute countdown in the background (fully local, no network
-  calls, no data collection).
-- At 0:00, fires a desktop notification + short chime telling you to look
-  20 feet away, and starts a 20-second break countdown.
-- When the break ends, notifies you and restarts the 20-minute cycle.
-- Click the extension icon anytime to see the live countdown ring, current
-  mode (working / break / paused), and today's break count.
+## Install
 
-## Controls (in the popup)
+1. Download or clone this repository.
+2. Open `chrome://extensions/`.
+3. Enable **Developer mode**.
+4. Select **Load unpacked**.
+5. Choose this repository folder.
 
-- **Pause / Resume** — stop or restart the whole cycle.
-- **Take break now** — skip straight to a 20-second break.
-- **Settings** — customize the work interval (default 20 min), break
-  duration (default 20 sec), and whether a sound plays.
+The first work cycle starts immediately.
 
-## Notes
+## Controls
 
-- The timer keeps running even if you close the popup — it's driven by
-  Chrome's alarm scheduler in the background, not the popup window.
-- If you reload/update the extension files, go back to
-  `chrome://extensions/` and click the refresh icon on the extension card.
-- To remove it, click **Remove** on the extension card in
-  `chrome://extensions/`.
+- **Pause / Resume** controls the work cycle.
+- **Break now** starts an immediate break.
+- **Start break** acknowledges a scheduled alarm.
+- **Settings** changes the work interval, break duration, and sound preference.
+
+## Privacy
+
+The extension is fully local. It has no analytics, network requests, accounts, or external dependencies.
+
+Chrome permissions:
+
+- `alarms` schedules the work interval.
+- `notifications` displays break reminders.
+- `storage` saves settings and daily break count.
+- `offscreen` provides reliable short-break timing and audio.
+
+## Development
+
+No build step is required. Validate the repository with:
+
+```sh
+npm test
+```
+
+After changing files, reload the extension from `chrome://extensions/`.
