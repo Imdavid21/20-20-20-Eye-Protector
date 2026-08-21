@@ -43,6 +43,13 @@ for (const script of ["background.js", "offscreen.js", "popup.js"]) {
   assert.doesNotThrow(() => new vm.Script(source, { filename: script }));
 }
 
+const background = fs.readFileSync(path.join(root, "background.js"), "utf8");
+const offscreen = fs.readFileSync(path.join(root, "offscreen.js"), "utf8");
+assert.match(background, /"break-warning"/);
+assert.doesNotMatch(background, /eye-rest-break-complete/);
+assert.match(offscreen, /ALERT_INTERVAL_MS = 3_000/);
+assert.match(offscreen, /getBeepInterval/);
+
 const popup = fs.readFileSync(path.join(root, "popup.html"), "utf8");
 assert.match(popup, /id="pauseBtn"/);
 assert.match(popup, /id="skipBtn"/);

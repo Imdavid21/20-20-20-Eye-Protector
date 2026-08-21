@@ -5,10 +5,11 @@ A focused Chrome extension for the 20-20-20 eye-rest routine.
 ## How it works
 
 1. Chrome starts a 20-minute work timer automatically.
-2. When the timer ends, a notification and repeating alarm request a break.
+2. When the timer ends, a notification and urgent repeating alarm request a break.
 3. The alarm continues until you open the extension and select **Start break**.
-4. A 20-second countdown begins with quiet one-second audio cues.
-5. The next 20-minute cycle starts automatically when the break ends.
+4. A 20-second countdown begins with audio cues that accelerate toward zero.
+5. A final warning appears shortly before the break ends.
+6. The next 20-minute cycle starts automatically without a completion notification.
 
 Pausing the extension stops all timers and sounds. A paused timer stays paused when Chrome restarts.
 
