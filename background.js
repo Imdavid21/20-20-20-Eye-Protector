@@ -48,6 +48,7 @@ async function sendOffscreen(message) {
 async function startWorkTimer(workMinutes) {
   const minutes = workMinutes ?? (await getState()).workMinutes;
   await sendOffscreen({ type: 'cancel-break' }).catch(() => {});
+  await sendOffscreen({ type: 'stop-alert' }).catch(() => {});
   await chrome.alarms.clear(WORK_ALARM);
   const nextEventAt = Date.now() + minutes * 60 * 1000;
   await chrome.alarms.create(WORK_ALARM, { when: nextEventAt });
@@ -58,9 +59,10 @@ async function startBreakTimer(breakSeconds, announce = true) {
   const state = await getState();
   const seconds = breakSeconds ?? state.breakSeconds;
   await chrome.alarms.clear(WORK_ALARM);
+  await sendOffscreen({ type: 'stop-alert' }).catch(() => {});
   const nextEventAt = Date.now() + seconds * 1000;
   await setState({ mode: 'break', nextEventAt, paused: false });
-  await sendOffscreen({ type: 'start-break', seconds, playSound: announce && state.soundEnabled });
+  await sendOffscreen({ type: 'start-break', seconds, playSound: state.soundEnabled });
   if (announce) await notifyBreakStart();
 }
 
@@ -69,11 +71,14 @@ async function markBreakReady() {
   await sendOffscreen({ type: 'cancel-break' }).catch(() => {});
   await setState({ mode: 'ready', nextEventAt: null, paused: false });
   await notifyBreakStart();
+  const state = await getState();
+  if (state.soundEnabled) await sendOffscreen({ type: 'start-alert' });
 }
 
 async function pauseTimer() {
   await chrome.alarms.clear(WORK_ALARM);
   await sendOffscreen({ type: 'cancel-break' }).catch(() => {});
+  await sendOffscreen({ type: 'stop-alert' }).catch(() => {});
   await setState({ mode: 'paused', paused: true, nextEventAt: null });
 }
 
@@ -103,9 +108,10 @@ async function reconcileTimer() {
   const remaining = state.nextEventAt - Date.now();
   if (state.mode === 'ready') {
     await chrome.alarms.clear(WORK_ALARM);
+    if (state.soundEnabled) await sendOffscreen({ type: 'start-alert' });
   } else if (state.mode === 'break') {
     if (remaining <= 0) await completeBreak();
-    else await sendOffscreen({ type: 'start-break', seconds: Math.max(1, Math.ceil(remaining / 1000)), playSound: false });
+    else await sendOffscreen({ type: 'start-break', seconds: Math.max(1, Math.ceil(remaining / 1000)), playSound: state.soundEnabled });
   } else {
     const alarm = await chrome.alarms.get(WORK_ALARM);
     if (remaining <= 0) await markBreakReady();
@@ -133,7 +139,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'get-state') return reconcileTimer();
     if (msg.type === 'pause') { await pauseTimer(); return getState(); }
     if (msg.type === 'resume') { await startWorkTimer((await getState()).workMinutes); return getState(); }
-    if (msg.type === 'skip-to-break' || msg.type === 'start-break') { await startBreakTimer((await getState()).breakSeconds); return getState(); }
+    if (msg.type === 'skip-to-break' || msg.type === 'start-break') { await startBreakTimer((await getState()).breakSeconds, false); return getState(); }
     if (msg.type === 'update-settings') {
       await setState({ workMinutes: msg.workMinutes, breakSeconds: msg.breakSeconds, soundEnabled: msg.soundEnabled });
       const state = await getState();
