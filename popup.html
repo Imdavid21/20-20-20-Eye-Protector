@@ -1,23 +1,88 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>20-20-20 Eye Rest</title><link rel="stylesheet" href="popup.css"><link rel="stylesheet" href="layout-fixes.css"></head>
-<body>
-  <div class="app">
-    <header>
-      <div class="title"><span class="eye" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.8"/></svg></span><h1>20-20-20</h1></div>
-      <div class="stat" id="stat">0 breaks today</div>
-    </header>
-    <main>
-      <div class="ring-wrap"><svg class="ring" viewBox="0 0 120 120"><circle class="ring-bg" cx="60" cy="60" r="52"></circle><circle class="ring-progress" id="ringProgress" cx="60" cy="60" r="52"></circle></svg><div class="ring-center"><div class="mode" id="modeLabel">Working</div><div class="time" id="timeLabel">20:00</div></div></div>
-      <div class="hint" id="hint">Next break</div>
-      <div class="actions"><button id="pauseBtn" class="btn secondary">Pause</button><button id="skipBtn" class="btn primary">Break now</button></div>
-    </main>
-    <section class="settings"><button class="settings-toggle" id="settingsToggle" aria-expanded="false">Settings <span>⌄</span></button><div class="settings-body hidden" id="settingsBody">
-      <label>Work minutes<input type="number" id="workMinutes" min="1" max="120" step="1"></label>
-      <label>Break seconds<input type="number" id="breakSeconds" min="5" max="120" step="1"></label>
-      <label class="checkbox-row"><input type="checkbox" id="soundEnabled">Sound</label>
-      <button id="saveBtn" class="btn primary full">Save</button>
-    </div></section>
-    <footer>20 min · 20 feet · 20 sec<div class="error hidden" id="errorMessage" role="alert"></div></footer>
-  </div><script src="popup.js"></script>
-</body></html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>20-20-20 Eye Rest</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <div class="title">
+          <span class="eye" aria-hidden="true"
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
+              <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+              <circle cx="12" cy="12" r="2.8" /></svg
+          ></span>
+          <h1>20-20-20</h1>
+        </div>
+        <div class="stat" id="stat">0 breaks today</div>
+      </header>
+      <main>
+        <div class="ring-wrap">
+          <svg class="ring" viewBox="0 0 120 120">
+            <circle class="ring-bg" cx="60" cy="60" r="52"></circle>
+            <circle
+              class="ring-progress"
+              id="ringProgress"
+              cx="60"
+              cy="60"
+              r="52"
+            ></circle>
+          </svg>
+          <div class="ring-center">
+            <div class="mode" id="modeLabel">Working</div>
+            <div class="time" id="timeLabel">20:00</div>
+          </div>
+        </div>
+        <div class="hint" id="hint">Next break</div>
+        <div class="actions">
+          <button id="pauseBtn" class="btn secondary">Pause</button
+          ><button id="skipBtn" class="btn primary">Break now</button>
+        </div>
+      </main>
+      <section class="settings">
+        <button
+          class="settings-toggle"
+          id="settingsToggle"
+          aria-expanded="false"
+        >
+          Settings <span>⌄</span>
+        </button>
+        <div class="settings-body hidden" id="settingsBody">
+          <label
+            >Work minutes<input
+              type="number"
+              id="workMinutes"
+              min="1"
+              max="120"
+              step="1"
+          /></label>
+          <label
+            >Break seconds<input
+              type="number"
+              id="breakSeconds"
+              min="5"
+              max="120"
+              step="1"
+          /></label>
+          <label class="checkbox-row"
+            ><input type="checkbox" id="soundEnabled" />Sound</label
+          >
+          <button id="saveBtn" class="btn primary full">Save</button>
+        </div>
+      </section>
+      <footer>
+        20 min · 20 feet · 20 sec
+        <div class="error hidden" id="errorMessage" role="alert"></div>
+      </footer>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

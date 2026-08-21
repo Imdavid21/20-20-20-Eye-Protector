@@ -1,155 +1,239 @@
-'use strict';
+"use strict";
 
-const WORK_ALARM = 'eyerest-work';
-const DEFAULTS = {
+const WORK_ALARM = "eye-rest-work";
+const OFFSCREEN_TARGET = "eye-rest-offscreen";
+const MODES = Object.freeze({
+  WORKING: "working",
+  READY: "ready",
+  BREAK: "break",
+  PAUSED: "paused",
+});
+const DEFAULTS = Object.freeze({
   workMinutes: 20,
   breakSeconds: 20,
   soundEnabled: true,
   paused: false,
-  mode: 'working',
+  mode: MODES.WORKING,
   nextEventAt: null,
   breaksTakenToday: 0,
-  statsDate: ''
-};
+  statsDate: "",
+});
 
-function todayString() { return new Date().toDateString(); }
+function todayString() {
+  return new Date().toDateString();
+}
 
 async function getState() {
   const stored = await chrome.storage.local.get(Object.keys(DEFAULTS));
-  const state = { ...DEFAULTS, ...stored };
-  if (!state.statsDate) state.statsDate = todayString();
-  return state;
+  return {
+    ...DEFAULTS,
+    ...stored,
+    statsDate: stored.statsDate || todayString(),
+  };
 }
 
-async function setState(partial) { await chrome.storage.local.set(partial); }
+async function updateState(partial) {
+  await chrome.storage.local.set(partial);
+}
 
-async function resetStatsIfNewDay(state) {
+async function resetDailyStats(state) {
   if (state.statsDate === todayString()) return state;
-  const next = { ...state, breaksTakenToday: 0, statsDate: todayString() };
-  await setState({ breaksTakenToday: 0, statsDate: next.statsDate });
-  return next;
+  const statsDate = todayString();
+  await updateState({ breaksTakenToday: 0, statsDate });
+  return { ...state, breaksTakenToday: 0, statsDate };
+}
+
+async function hasOffscreenDocument() {
+  const contexts = await chrome.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT"],
+  });
+  return contexts.length > 0;
 }
 
 async function ensureOffscreenDocument() {
-  const existing = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
-  if (existing.length) return;
+  if (await hasOffscreenDocument()) return;
   await chrome.offscreen.createDocument({
-    url: 'offscreen.html',
-    reasons: ['AUDIO_PLAYBACK'],
-    justification: 'Play the reminder and reliably time the 20-second eye break.'
+    url: "offscreen.html",
+    reasons: ["AUDIO_PLAYBACK"],
+    justification: "Play reminders and time the active 20-second eye break.",
   });
 }
 
-async function sendOffscreen(message) {
+async function sendOffscreen(type, details = {}) {
   await ensureOffscreenDocument();
-  await chrome.runtime.sendMessage({ ...message, target: 'offscreen' });
+  await chrome.runtime.sendMessage({
+    target: OFFSCREEN_TARGET,
+    type,
+    ...details,
+  });
 }
 
-async function startWorkTimer(workMinutes) {
+async function stopOffscreenRuntime() {
+  if (!(await hasOffscreenDocument())) return;
+  await chrome.runtime.sendMessage({
+    target: OFFSCREEN_TARGET,
+    type: "stop-all",
+  });
+}
+
+async function startWork(workMinutes) {
   const minutes = workMinutes ?? (await getState()).workMinutes;
-  await sendOffscreen({ type: 'cancel-break' }).catch(() => {});
-  await sendOffscreen({ type: 'stop-alert' }).catch(() => {});
+  await stopOffscreenRuntime();
   await chrome.alarms.clear(WORK_ALARM);
-  const nextEventAt = Date.now() + minutes * 60 * 1000;
+  const nextEventAt = Date.now() + minutes * 60_000;
   await chrome.alarms.create(WORK_ALARM, { when: nextEventAt });
-  await setState({ mode: 'working', nextEventAt, paused: false });
-}
-
-async function startBreakTimer(breakSeconds, announce = true) {
-  const state = await getState();
-  const seconds = breakSeconds ?? state.breakSeconds;
-  await chrome.alarms.clear(WORK_ALARM);
-  await sendOffscreen({ type: 'stop-alert' }).catch(() => {});
-  const nextEventAt = Date.now() + seconds * 1000;
-  await setState({ mode: 'break', nextEventAt, paused: false });
-  await sendOffscreen({ type: 'start-break', seconds, playSound: state.soundEnabled });
-  if (announce) await notifyBreakStart();
+  await updateState({ mode: MODES.WORKING, nextEventAt, paused: false });
 }
 
 async function markBreakReady() {
-  await chrome.alarms.clear(WORK_ALARM);
-  await sendOffscreen({ type: 'cancel-break' }).catch(() => {});
-  await setState({ mode: 'ready', nextEventAt: null, paused: false });
-  await notifyBreakStart();
   const state = await getState();
-  if (state.soundEnabled) await sendOffscreen({ type: 'start-alert' });
-}
-
-async function pauseTimer() {
+  if (state.mode === MODES.READY) return;
   await chrome.alarms.clear(WORK_ALARM);
-  await sendOffscreen({ type: 'cancel-break' }).catch(() => {});
-  await sendOffscreen({ type: 'stop-alert' }).catch(() => {});
-  await setState({ mode: 'paused', paused: true, nextEventAt: null });
+  await stopOffscreenRuntime();
+  await updateState({ mode: MODES.READY, nextEventAt: null, paused: false });
+  await chrome.notifications.create("eye-rest-break-ready", {
+    type: "basic",
+    iconUrl: "icons/icon128.png",
+    title: "Time for an eye break",
+    message: "Open the extension and start your 20-second break.",
+    priority: 2,
+  });
+  if (state.soundEnabled) await sendOffscreen("start-alert");
 }
 
-async function notifyBreakStart() {
-  await chrome.notifications.create('eyerest-break-start', {
-    type: 'basic', iconUrl: 'icons/icon128.png', title: 'Look away for 20 seconds',
-    message: 'Focus on something at least 20 feet away.', priority: 2
+async function startBreak(breakSeconds) {
+  const state = await getState();
+  const seconds = breakSeconds ?? state.breakSeconds;
+  await chrome.alarms.clear(WORK_ALARM);
+  await stopOffscreenRuntime();
+  const nextEventAt = Date.now() + seconds * 1_000;
+  await updateState({ mode: MODES.BREAK, nextEventAt, paused: false });
+  await sendOffscreen("start-break", {
+    seconds,
+    playSound: state.soundEnabled,
   });
+}
+
+async function pause() {
+  await chrome.alarms.clear(WORK_ALARM);
+  await stopOffscreenRuntime();
+  await updateState({ mode: MODES.PAUSED, nextEventAt: null, paused: true });
 }
 
 async function completeBreak() {
-  let state = await resetStatsIfNewDay(await getState());
-  if (state.mode !== 'break' || state.paused) return;
-  const newCount = (state.breaksTakenToday || 0) + 1;
-  await setState({ breaksTakenToday: newCount });
-  await chrome.notifications.create('eyerest-break-end', {
-    type: 'basic', iconUrl: 'icons/icon128.png', title: 'Break complete',
-    message: `${newCount} eye break${newCount === 1 ? '' : 's'} today.`, priority: 1
+  const state = await resetDailyStats(await getState());
+  if (state.mode !== MODES.BREAK || state.paused) return;
+  const breaksTakenToday = state.breaksTakenToday + 1;
+  await updateState({ breaksTakenToday });
+  await chrome.notifications.create("eye-rest-break-complete", {
+    type: "basic",
+    iconUrl: "icons/icon128.png",
+    title: "Break complete",
+    message: `${breaksTakenToday} today`,
+    priority: 1,
   });
-  await startWorkTimer(state.workMinutes);
+  await startWork(state.workMinutes);
 }
 
-async function reconcileTimer() {
-  let state = await resetStatsIfNewDay(await getState());
-  if (state.paused || state.mode === 'paused') return state;
-  if (!state.nextEventAt) { await startWorkTimer(state.workMinutes); return getState(); }
-  const remaining = state.nextEventAt - Date.now();
-  if (state.mode === 'ready') {
-    await chrome.alarms.clear(WORK_ALARM);
-    if (state.soundEnabled) await sendOffscreen({ type: 'start-alert' });
-  } else if (state.mode === 'break') {
-    if (remaining <= 0) await completeBreak();
-    else await sendOffscreen({ type: 'start-break', seconds: Math.max(1, Math.ceil(remaining / 1000)), playSound: state.soundEnabled });
-  } else {
-    const alarm = await chrome.alarms.get(WORK_ALARM);
-    if (remaining <= 0) await markBreakReady();
-    else if (!alarm) await chrome.alarms.create(WORK_ALARM, { when: state.nextEventAt });
+async function restoreRuntime() {
+  const state = await resetDailyStats(await getState());
+  if (state.paused || state.mode === MODES.PAUSED) return state;
+
+  if (state.mode === MODES.READY) {
+    if (state.soundEnabled && !(await hasOffscreenDocument()))
+      await sendOffscreen("start-alert");
+    return getState();
+  }
+
+  if (state.mode === MODES.BREAK) {
+    const remainingSeconds = Math.ceil(
+      (state.nextEventAt - Date.now()) / 1_000,
+    );
+    if (remainingSeconds <= 0) await completeBreak();
+    else if (!(await hasOffscreenDocument())) {
+      await sendOffscreen("start-break", {
+        seconds: remainingSeconds,
+        playSound: state.soundEnabled,
+      });
+    }
+    return getState();
+  }
+
+  if (!state.nextEventAt) {
+    await startWork(state.workMinutes);
+    return getState();
+  }
+  if (state.nextEventAt <= Date.now()) {
+    await markBreakReady();
+    return getState();
+  }
+  if (!(await chrome.alarms.get(WORK_ALARM))) {
+    await chrome.alarms.create(WORK_ALARM, { when: state.nextEventAt });
   }
   return getState();
 }
 
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === WORK_ALARM) await markBreakReady();
-});
-
-chrome.runtime.onInstalled.addListener(async () => {
+async function updateSettings(message) {
+  await updateState({
+    workMinutes: message.workMinutes,
+    breakSeconds: message.breakSeconds,
+    soundEnabled: message.soundEnabled,
+  });
   const state = await getState();
-  await setState({ statsDate: state.statsDate || todayString() });
-  await reconcileTimer();
+  if (state.paused) return state;
+  if (state.mode === MODES.READY) {
+    if (state.soundEnabled) await sendOffscreen("start-alert");
+    else await stopOffscreenRuntime();
+    return getState();
+  }
+  if (state.mode === MODES.BREAK) await startBreak(message.breakSeconds);
+  else await startWork(message.workMinutes);
+  return getState();
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === WORK_ALARM) markBreakReady().catch(console.error);
 });
+chrome.runtime.onInstalled.addListener(() =>
+  restoreRuntime().catch(console.error),
+);
+chrome.runtime.onStartup.addListener(() =>
+  restoreRuntime().catch(console.error),
+);
 
-chrome.runtime.onStartup.addListener(reconcileTimer);
-
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg && msg.target === 'offscreen') return false;
-  (async () => {
-    if (msg.type === 'break-complete') { await completeBreak(); return { ok: true }; }
-    if (msg.type === 'get-state') return reconcileTimer();
-    if (msg.type === 'pause') { await pauseTimer(); return getState(); }
-    if (msg.type === 'resume') { await startWorkTimer((await getState()).workMinutes); return getState(); }
-    if (msg.type === 'skip-to-break' || msg.type === 'start-break') { await startBreakTimer((await getState()).breakSeconds, false); return getState(); }
-    if (msg.type === 'update-settings') {
-      await setState({ workMinutes: msg.workMinutes, breakSeconds: msg.breakSeconds, soundEnabled: msg.soundEnabled });
-      const state = await getState();
-      if (!state.paused) {
-        if (state.mode === 'break') await startBreakTimer(msg.breakSeconds, false);
-        else if (state.mode !== 'ready') await startWorkTimer(msg.workMinutes);
-      }
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!message || message.target === OFFSCREEN_TARGET) return false;
+  const handlers = {
+    "break-complete": async () => {
+      await completeBreak();
+      return { ok: true };
+    },
+    "get-state": async () => resetDailyStats(await getState()),
+    pause: async () => {
+      await pause();
       return getState();
-    }
-    return {};
-  })().then(sendResponse).catch((error) => sendResponse({ error: error.message || 'Timer error' }));
+    },
+    resume: async () => {
+      await startWork((await getState()).workMinutes);
+      return getState();
+    },
+    "start-break": async () => {
+      await startBreak((await getState()).breakSeconds);
+      return getState();
+    },
+    "skip-to-break": async () => {
+      await startBreak((await getState()).breakSeconds);
+      return getState();
+    },
+    "update-settings": async () => updateSettings(message),
+  };
+  const handler = handlers[message.type];
+  if (!handler) {
+    sendResponse({ error: "Unknown request" });
+    return false;
+  }
+  handler()
+    .then(sendResponse)
+    .catch((error) => sendResponse({ error: error.message || "Timer error" }));
   return true;
 });
